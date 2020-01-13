@@ -26,15 +26,6 @@ createDistanceTable <- function(path_to_corpus,
                                 zscores_transformation = NULL,
                                 distance_measure = "burrows-delta") {
   # Preliminary checks
-  if (!dir.exists(path_to_corpus)) {
-    stop("You've entered an invalid path!")
-  }
-  if (length(dir(path_to_corpus, pattern = ".txt")) < 1) {
-    stop("Your corpus directory doesn't contain any text files!")
-  }
-  if (length(dir(path_to_corpus, pattern = ".txt")) == 1) {
-    stop("Your corpus directory contains only one text file!")
-  }
   if (!is.matrix(freq_dist)) {
     stop("Your frequency distribution is not a matrix!")
   }
