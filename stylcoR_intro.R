@@ -2,10 +2,21 @@
 ################################# Instructions #################################
 ################################################################################
 
+#### Reproduction of my analyses using a frequency table
+#### (--> https://github.com/jbrottrager/stylcoR/frequency_tables.zip)
+####
+#### 
 #### How your data should look like:
 ####
-#### -> The txt files of your corpus should all be in one directory. The
-####    variable <path_to_corpus> leads to this directory.
+#### -> The frequency table should be in a directory called "mini_corpus"
+#### -> Add another directory called "results"
+####
+#### Structure:
+#### --- corpus_analysis
+####      --- mini_corpus
+####          --- 1gram_frequency_table.txt
+####      --- results
+####      --- distinctive_features_corpus.csv
 ####
 #### -> Your metadata table should feature texts as rows and metadata categories
 ####    as column. One column has to feature the filename of each text (without
@@ -15,20 +26,25 @@
 
 # Variables that have to be altered ############################################
 
-corpus_paths <- c("C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\mini_corpus",
-                  "C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\midi_corpus",
-                  "C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\corpus")
+#install.packages("devtools")
+library(devtools)
+install_github("jbrottrager/stylcoR")
+library(stylcoR)
+#install.packages("data.table")
+library(data.table)
 
-results_paths <- c("C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\results\\mini_corpus",
-                   "C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\results\\midi_corpus",
-                   "C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\results\\corpus")
+results_paths <- c("C:\\XXX")
+path_to_corpus <- "C:\\XXX"
 
-overall_results <- "C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\results"
-
-metadata <- read.table("C:\\Users\\litlab-hiwi\\Documents\\MA-Thesis\\distinctive_features_corpus.csv", 
+metadata <- read.table("C:\\XXX\\distinctive_features_corpus.csv", 
                        header = TRUE,
                        check.names = FALSE, sep = ";",
                        stringsAsFactors = FALSE)
+
+
+
+freq <- fread("C:\\XXX\\mini_corpus\\1gram_frequency_table.txt", 
+              header = TRUE, check.names = FALSE, data.table = FALSE)
 # View(metadata)
 # Check whether your metadata was read in correctly, you might need to change 
 # the separator 
@@ -56,8 +72,6 @@ MFW <- list(100, 500, 1000, 3000)
 
 culling <- list(20, 50, 80)
 
-n_gram_sizes <- list(1, 2)
-
 zscores_tranformation <- list("none", "normalise", "ternarise")
 
 
@@ -68,33 +82,30 @@ param_combination <- expand.grid(culling,
 
 
 param_combination <- param_combination[!(param_combination$Var3=="ternarise" & 
-                                      param_combination$Var4=="cosine-delta"),]
+                                           param_combination$Var4=="cosine-delta"),]
 
 # Frequency Tables and Distance Tables #########################################
 
-for (y in 1:length(corpus_paths)) {
-  path_to_corpus <- as.character(corpus_paths[y])
-  for (x in 1:length(n_gram_sizes)) {
-    freq <- createFreqTable(path_to_corpus, n_gram_size = n_gram_sizes[x])
-    for (j in 1:nrow(param_combination)) {
-      
-      createDistanceTable(path_to_corpus,
-                          freq_dist = freq,
-                          n_gram_size = n_gram_sizes[x],
-                          culling_level = as.numeric(param_combination[j,1]),
-                          cut_off = as.numeric(param_combination[j,2]),
-                          zscores_transformation = 
-                            as.character(param_combination[j,3]),
-                          distance_measure = 
-                            as.character(param_combination[j,4]))
-      gc()
-      
-    }
-    
-  }
-  rm(freq)
+freq2 <- freq[,-1]
+rownames(freq2) <- freq[,1]
+
+freq <- as.matrix(freq2)
+
+for (j in 1:nrow(param_combination)) {
+  
+  createDistanceTable(path_to_corpus,
+                      freq_dist = freq,
+                      n_gram_size = 1,
+                      culling_level = as.numeric(param_combination[j,1]),
+                      cut_off = as.numeric(param_combination[j,2]),
+                      zscores_transformation = 
+                        as.character(param_combination[j,3]),
+                      distance_measure = 
+                        as.character(param_combination[j,4]))
   gc()
+  
 }
+
 
 ################################################################################
 # Significance 
@@ -144,12 +155,12 @@ for(n in 1:length(results_paths)) {
 
 # Significance Test ############################################################
 
-all_dists <- list.files(overall_results, pattern = "dist_table_.+.csv", 
-                      recursive = TRUE, full.names = TRUE)
+all_dists <- list.files(results_paths, pattern = "dist_table_.+.csv", 
+                        recursive = TRUE, full.names = TRUE)
 
 results_significance <- data.frame(group1 = character(), group2 = character(), 
-                      corpus = character(), settings = character(),
-                      significant = character(), p_value = numeric())
+                                   corpus = character(), settings = character(),
+                                   significant = character(), p_value = numeric())
 
 for (j in seq(1, length(all_dists), by = 2)) {
   t <- testSignificance(all_dists[j], all_dists[j+1], "mean")
@@ -158,26 +169,26 @@ for (j in seq(1, length(all_dists), by = 2)) {
 
 results_significance$transformation <- results_significance$setting
 results_significance$transformation <- gsub(".+_", "",
-                               results_significance$transformation)
+                                            results_significance$transformation)
 
 results_significance$MFF <- results_significance$setting
 results_significance$MFF <- as.numeric(gsub(".+_(\\d+)MFF_.+", "\\1",
-                    results_significance$MFF))
+                                            results_significance$MFF))
 
 results_significance$measure <- results_significance$setting
 results_significance$measure <- gsub(".+_(.+delta)_.+", "\\1",
-                        results_significance$measure)
+                                     results_significance$measure)
 
 results_significance$culling <- results_significance$setting
 results_significance$culling <- gsub(".+_(.+c)_.+", "\\1",
-                        results_significance$culling)
+                                     results_significance$culling)
 
 results_significance$ngram <- results_significance$setting
 results_significance$ngram <- as.numeric(gsub("(.)gram_.+", "\\1",
-                        results_significance$ngram))
+                                              results_significance$ngram))
 
 write.table(results_significance, 
-            paste0(overall_results, "\\results_significance_tests.csv"),
+            paste0(results_paths, "\\results_significance_tests.csv"),
             col.names = NA)
 
 ################################################################################
@@ -212,23 +223,23 @@ for (j in 1:length(metadata_cols_binary)) {
 
 results_classification$transformation <- results_classification$setting
 results_classification$transformation <- gsub(".+_", "",
-                                            results_classification$transformation)
+                                              results_classification$transformation)
 
 results_classification$MFF <- results_classification$setting
 results_classification$MFF <- as.numeric(gsub(".+_(\\d+)MFF_.+", "\\1",
-                                            results_classification$MFF))
+                                              results_classification$MFF))
 
 results_classification$culling <- results_classification$setting
 results_classification$culling <- gsub(".+_(.+c)_.+", "\\1",
-                                     results_classification$culling)
+                                       results_classification$culling)
 
 results_classification$ngram <- results_classification$setting
 results_classification$ngram <- as.numeric(gsub("(.)gram_.+", "\\1",
-                                              results_classification$ngram))
+                                                results_classification$ngram))
 
 
 write.table(results_classification, 
-            paste0(overall_results, "\\results_classification.csv"),
+            paste0(results_paths, "\\results_classification.csv"),
             col.names = NA)
 
 
